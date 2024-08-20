@@ -282,9 +282,7 @@ int main()
             else if(o>6)printf("\nINVALID option\n");
         //   for(i=0; i<wait; i++);
            
-    }
-
-            {
+            else{
                 printf("\nSTARTING CLOCK IN 5 seconds.");
                 int a=4;
                 while(a--) {
@@ -293,6 +291,8 @@ int main()
                 }   
                 o=7;
             }    
+    }
+
     //run clock
 
     
