@@ -344,7 +344,7 @@ set:
                 system("cls");
                 printf("waiting for: %s\n", S);
                 printf(" %d/%d/%d %d:%d   %s\n" ,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
-                printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
+                // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 time(&currentTime);
                 myTime = localtime(&currentTime);
