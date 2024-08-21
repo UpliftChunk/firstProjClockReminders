@@ -5,9 +5,11 @@
 #include <time.h>
 #include <unistd.h>
 
+enum OperationType {UNDO, REDO};
 int num=1;
 int times=0;
-void nl()
+
+void newLine()
 {
     if(times!=0){
         printf("\n");
@@ -26,49 +28,46 @@ struct node
 
 // file carrier
 typedef struct oprs{
-    char name[8];
+    char fileName[8];
     FILE *file;
     struct oprs *next;
 }fc;
-// normalOPERATIONStop and redoOPERATIONStop
-fc *nt=NULL, *rdt=NULL;
+// normalOperationsTop and redoOperationsTop
+fc *undoStackTop=NULL, *redoStackTop=NULL;
 
 
-
-// stack using sll making sop
-fc *SOPpush(char s[], fc *top)
+fc *push(char s[], fc *top)  // push file carrier to a desired stack
 {
-    fc *nOP;
-    nOP= (fc*)malloc(sizeof(fc));
-    strcpy(nOP->name,s);
-    if(top==NULL)    nOP->next=NULL;
-    else    nOP->next=top;
-    return nOP; 
+    fc *newFile;
+    newFile= (fc*)malloc(sizeof(fc));
+    strcpy(newFile->fileName,s);
+    if(top==NULL)    newFile->next=NULL;
+    else   newFile->next=top;
+    return newFile; 
 }
-//poping from given sop and pushing to other sop
-void pop(char a)
+void pop(enum OperationType a) // undo redo stack's top file carrier is exchanged
 {
-    if(a=='u') {
-        rdt= SOPpush(nt->name, rdt);
-        if(nt->next!=NULL) nt=nt->next;
-        else nt=NULL;
+    if(a==UNDO) {
+        redoStackTop= push(undoStackTop->fileName, redoStackTop);
+        if(undoStackTop->next!=NULL) undoStackTop=undoStackTop->next;
+        else undoStackTop=NULL;
     }
     else {
-        nt= SOPpush(rdt->name, nt);
-        if(rdt->next!=NULL) rdt=rdt->next;
-        else rdt=NULL;
+        undoStackTop= push(redoStackTop->fileName, undoStackTop);
+        if(redoStackTop->next!=NULL) redoStackTop=redoStackTop->next;
+        else redoStackTop=NULL;
     }
 }
-void createfile(int d,struct node *nn)
+void createfile(int op,struct node *nn)  // create new file carrier and push it to undo stack
 {
     char s[8];
     sprintf(s, "file%d", num++);
     FILE* ptr = fopen(s, "w+");
-    fprintf(ptr,"%d\n%s\n%d/%d/%d\n%d:%d",d,nn->label,nn->dn,nn->mn,nn->yn,nn->Th,nn->Tm);
+    fprintf(ptr,"%d\n%s\n%d/%d/%d\n%d:%d",op,nn->label,nn->dn,nn->mn,nn->yn,nn->Th,nn->Tm);
     fclose(ptr);
-    nt=SOPpush(s, nt);
+    undoStackTop=push(s, undoStackTop);
 }
-struct node *push(char S[], int D, int M, int Y, int TH, int TM)
+struct node *insertIntoReminders(char S[], int D, int M, int Y, int TH, int TM)  // insert reminder node and return new node address
 {
     struct node *nn,*place;
     nn =(struct node*)malloc(sizeof(struct node));
@@ -106,7 +105,7 @@ struct node *push(char S[], int D, int M, int Y, int TH, int TM)
 void displayAllReminders()
 {
     struct node *tmp=first;
-    nl();
+    newLine();
     while(tmp!=NULL)
     {
         printf(" %02d/%02d/%04d %02d:%02d   %s ",tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
@@ -116,8 +115,9 @@ void displayAllReminders()
         }
     }
 }
-void del(char c,struct node *pos)
+void del(char c,struct node *pos)  // deletes a node by taking its address
 {
+    // c indicates if its user called(m) or admin called(n)
     struct node *tmp=pos, *nn;
     if(tmp==last){
         nn=pos->prev;
@@ -133,76 +133,91 @@ void del(char c,struct node *pos)
         (tmp->prev)->next= tmp->next;
         (tmp->next)->prev= tmp->prev;
     }
-    if(c=='m')createfile(2,tmp);
+    if(c=='m') createfile(2,tmp);
     free(tmp);
 }
-void src(char S[])
+struct node *findNode(char S[]){           // finds first occuring label's address
+    struct node *target=first; // target iterats on reminders list
+    int found=0; // available is also the serial number
+    do{
+        if ( strcmp((S),target->label)==0 ){
+            found=1;
+            break;
+        } 
+        target=target->next;
+    }while ( target!=last );
+    return target;
+}
+void searchLabel(char S[])  // stored address is sent to delete
 {
-    struct node *tmp=first, *lcn[10];
-    int count=1, flag=1;
+    struct node *tmp=first, *LabelsAddress[10]; // tmp iterats on reminders list
+    int available=1, found=0; // available is also the serial number
     if(tmp==NULL) {
         printf("THERE ARE NO REMINDERS TO LOOK FOR\n");
         return;
     }
     do{
         if ( strcmp((S),tmp->label)==0 ){
-            flag=0;
-            printf("\n%d) %s IS FOUND AT %02d/%02d/%d %02d:%02d",count,S,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm);
-            lcn[count++]=tmp;
+            found=1;
+            printf("\n%d) %s IS FOUND AT %02d/%02d/%d %02d:%02d",available,S,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm);
+            LabelsAddress[available++]=tmp;
         } 
         tmp=tmp->next;
     }while ( tmp!=last );
-    if(flag==1){
-        nl();
+    if(!found){
+        newLine();
         printf("NO SUCH LABEL: \" %s \" IS FOUND IN YOUR REMINDERS",S);
+        return;
     }
-    else if(tmp==last){
-        int dL=0;
-        printf("\n\tEnter anyother number to terminate this \" option-2 \"");
-        while(dL<count)
-        {
-            printf("\nEnter serial number of the reminder to be eliminated : ");   scanf("%d",&dL);
-            if(dL<count){
-                if(lcn[dL]!=NULL){
-                    del('m',lcn[dL]);
-                    printf("THE REMINDER \"%s\" AT serial number : %d is successfully removed",S,dL);
-                    lcn[dL]=NULL;
-                }
-                else{
-                    printf("REMINDER AT THIS SERIAL NUMBER IS ALREADY REMOVED");
-                }
+
+    int dL=1;
+    printf("\n\tEnter anyother number to terminate this \" option-2 \"");
+    while(dL<available)
+    {
+        printf("\nEnter serial number of the reminder to be eliminated : ");   
+        scanf("%d",&dL);
+        if(dL<available){
+            if(LabelsAddress[dL]!=NULL){
+                del('m',LabelsAddress[dL]); // user called
+                printf("THE REMINDER \"%s\" AT serial number : %d is successfully removed",S,dL);
+                LabelsAddress[dL]=NULL;
             }
             else{
-                printf(" option exited \n");
+                printf("REMINDER AT THIS SERIAL NUMBER IS ALREADY REMOVED");
             }
         }
+        else{
+            printf(" option exited \n");
+        }
     }
+
 }
-void alter(char c)
+void alter(enum OperationType c)   // (node address to remove is sent to delete | new node is inserted) and undo redo stack's top fc is exchanged
 {
     int OP,D,M,Y,TH,TM,d,m,y,th,tm;
     char S[100],s[100];
     FILE *ptr;
-    if(c=='u') ptr = fopen(nt->name,"r+");
-    else ptr = fopen(rdt->name,"r+");
-    struct node *tmp=first;
+    if(c==UNDO) ptr = fopen(undoStackTop->fileName,"r+");
+    else ptr = fopen(redoStackTop->fileName,"r+");
+
+    struct node *tmp=first; // iterates on reminders list
     fscanf(ptr, "%d\n%s\n%d/%d/%d\n%d:%d" ,&OP,S,&D,&M,&Y,&TH,&TM);
     fclose(ptr);
-    if( (OP==1 && c=='u') || (OP==2 && c=='r') ){
+    if( (OP==1 && c==UNDO) || (OP==2 && c==REDO) ){ // 1- added, 2- removed
         while(tmp!=NULL){
             strcpy(s,tmp->label);
             d=tmp->dn, m=tmp->mn, y=tmp->yn, th=tmp->Th, tm=tmp->Tm;
             if ( strcmp(S,s)==0 && D==d && M==m && Y==y && TH==th && TM==tm){
-                del('n',tmp);
+                del('n',tmp); // admin called: doesnt create new File Carrier, exisitng file carrier is exchanged 
                 printf("THE REMINDER \"%s\" IS REMOVED\n",S);
                 tmp=NULL;
                 break;
             }
-        tmp=tmp->next;
+            tmp=tmp->next;
         }
     }
     else{
-        tmp=push(S,D,M,Y,TH,TM);
+        tmp=insertIntoReminders(S,D,M,Y,TH,TM);
         printf("THE REMINDER \"%s\" IS ADDED AGAIN\n",S);
     }
     
@@ -213,33 +228,40 @@ void alter(char c)
 int main()
 {
     
-    int OP,D,M,Y,TH,TM,Th,Tm,d,m,y,sec,o=0;
+    int OP, Th,Tm,d,m,y,sec,o=0;
     char SrcLabel[100],note[100],S[100];
     struct node *p;
     printf("\n \t\t\t\t\t\t ~Clock follows 24hr format for input~\n"); 
     
-    printf("Allowed options:\n1.Add reminder label and time \n2.Remove a label from the queue \n3.Undo / Redo(if possible) the most recent option\n5.View all events in your calender\n6.Start Clock(this action can't be interpted)\n");
+    printf( 
+        "Allowed options:\n"
+        "1. Add reminder label and time \n"
+        "2. Remove a label from the queue \n"
+        "3. Undo / Redo(if possible) the most recent option\n"
+        "5. View all events in your calendar\n"
+        "6. Start Clock(this action can't be interrupted)\n"
+    );
+
     
-    while(o!=7)
+    while(o!=6)  // handle operations
     {
-    // system("clear");   
+    // system("clear"); - clear for linux, cls for windows  
         
         printf(" \t\t\t\t\t\t ~Enter a valid Choice: ");        scanf("%d",&o);
         // performing option
-          
             if(o==1)
             {
                 printf(" mention the label: "); scanf("%s",note);
                 printf(" date(dd/mm/yyyy) : "); scanf("%d/%d/%d",&d,&m,&y);
                 printf(" enter time (hr:min) : "); scanf("%d:%d",&Th,&Tm);
-                p=push(note,d,m,y,Th,Tm);
+                p=insertIntoReminders(note,d,m,y,Th,Tm);
                 createfile(1,p);
                 printf("\t\t\t\t ~reminder Added~\n"); 
             }
             
             else if(o==2){
                 printf("Enter search label: "), scanf("%s",SrcLabel);
-                src(SrcLabel);
+                searchLabel(SrcLabel);
             }
             
             else if(o==3){
@@ -247,14 +269,14 @@ int main()
                     printf("Select option:\t3.Undo    4.Redo    5.displayAllReminders\t: "); scanf(" %d",&o);
                     // printf("           %d          \n",o);
                     if(o==3){
-                        if(nt==NULL) printf("reminder list is empty\n");
+                        if(undoStackTop==NULL) printf("reminder list is empty\n");
                         else 
-                            alter('u');
+                            alter(UNDO);
                     }
                     else if(o==4){
-                        if(rdt==NULL) printf("no UNDO operation was performed recently\n");
+                        if(redoStackTop==NULL) printf("no UNDO operation was performed recently\n");
                         else 
-                            alter('r');
+                            alter(REDO);
                     }
                     else if(o==5){
                         displayAllReminders(); printf("\n");
@@ -264,15 +286,15 @@ int main()
                         break;
                     }
                 }while(1);
-                fc *nn,*tmp=rdt;
+                fc *nn,*tmp=redoStackTop;
                 while(tmp!=NULL)
                 {
                     nn=tmp;
                     tmp=tmp->next;
-                    remove(nn->name);
+                    remove(nn->fileName);
                     free(nn);
                 }
-                rdt = NULL;    
+                redoStackTop = NULL;    
             }
             
             else if(o==5){
@@ -289,7 +311,6 @@ int main()
                     sleep(1);
                     printf(".");
                 }   
-                o=7;
             }    
     }
 
@@ -301,98 +322,74 @@ int main()
         time(&currentTime);
         struct tm *myTime = localtime(&currentTime);
         sec=myTime->tm_sec ;
-        Tm=min=myTime->tm_min ;
-        Th=hour=myTime->tm_hour ;
-        d=date=myTime->tm_mday ;
-        m=month= ++myTime->tm_mon ;
-        y=year=myTime->tm_year ;
+        min=myTime->tm_min ;
+        hour=myTime->tm_hour ;
+        date=myTime->tm_mday ;
+        month= ++myTime->tm_mon ;
+        year=myTime->tm_year ;
     
-int flag[5]={0};
-struct node *nn,*tmp=first;
-D=tmp->dn, M=tmp->mn, Y=tmp->yn, TH=tmp->Th, TM=tmp->Tm;
+        struct node *nn,*tmp=first;  // tmp points to the upcoming reminder
+        d=tmp->dn, m=tmp->mn, y=tmp->yn, Th=tmp->Th, Tm=tmp->Tm;
 
-while(tmp->yn<year  && tmp->next!=NULL)                      tmp=tmp->next, flag[0]=1;
-if(tmp->next!=NULL  && flag[0]==1) tmp=tmp->next;
-while(tmp->mn<month && tmp->yn<=year   && tmp->next!=NULL)   tmp=tmp->next, flag[1]=1;
-if(tmp->next!=NULL  && flag[1]==1) tmp=tmp->next;
-while(tmp->dn<date  && tmp->mn<=month  && tmp->next!=NULL)   tmp=tmp->next, flag[2]=1;
-if(tmp->next!=NULL  && flag[2]==1) tmp=tmp->next;
-while(tmp->Th<hour  && tmp->dn<=date   && tmp->next!=NULL)   tmp=tmp->next, flag[3]=1;
-if(tmp->next!=NULL  && flag[3]==1) tmp=tmp->next;
-while(tmp->Tm<min   && tmp->Th<=hour   && tmp->next!=NULL)   tmp=tmp->next, flag[4]=1;
-if(tmp->next!=NULL  && flag[4]==1) tmp=tmp->next;
-else if(tmp==NULL) 
-    goto finish;
-myTime = localtime(&currentTime);
-        sec=myTime->tm_sec ;
-        Tm=myTime->tm_min ;
-        Th=myTime->tm_hour ;
-        d=myTime->tm_mday ;
-        m= ++myTime->tm_mon ;
-        y=myTime->tm_year ;
-        y+=1900;
+        strcpy(note, "_start_point");
+        p=insertIntoReminders(note,d,m,y,Th,Tm);
+        tmp= findNode(note)->next;
+        if(tmp==NULL) goto finish;
+
 set:
-    D=tmp->dn, M=tmp->mn, Y=tmp->yn, TH=tmp->Th, TM=tmp->Tm;
+    int D=tmp->dn, M=tmp->mn, Y=tmp->yn, TH=tmp->Th, TM=tmp->Tm;
     strcpy(S,tmp->label);
-    // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
-    // printf(" %d/%d/%d %d:%d   %s\n" ,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
         
-        while(1){
-            while(m<13){
-                while(d<31){
-                    while(Th<24){
-                        while(Tm<60){
-                              while(sec<60)
-                                {
-                system("clear");
+        while(tmp!=NULL){
+                system("cls");
+                printf("waiting for: %s\n", S);
+                printf(" %d/%d/%d %d:%d   %s\n" ,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
+                printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 time(&currentTime);
                 myTime = localtime(&currentTime);
                 printf("%s\n",ctime(&currentTime));
                 
-                sec++;
-                if (( d==D && m==M && y==Y && Th==TH && Tm==TM)){
+                sec=myTime->tm_sec ;
+                Tm=min=myTime->tm_min ;
+                Th=hour=myTime->tm_hour ;
+                d=date=myTime->tm_mday ;
+                m=month= ++myTime->tm_mon ;
+                y=year=myTime->tm_year +1900;
+
+                if ( d==D && m==M && y==Y && Th==TH && Tm==TM){
                     printf("TIME FOR \"%s\"\n",S);
-                    if(Tm==59){
+                    if(sec==59){
                         tmp=tmp->next;
-                        if(tmp==NULL){
-                            goto finish;
-                        }
-                        goto set;
+                        if(tmp!=NULL) goto set;
                     } 
                 }
                 sleep(1);    
-            
-                                } 
-                            ++Tm;   sec=1;  } 
-                        Th++;    Tm=1;  } 
-                    d++;    Th=0;  }
-                m++;    d=1;   }
-            y++;    m=1;   }
+        }
     
 
 
-    
-    
-finish:    
-// clearing malloc data of reminders
-    tmp=first;
-    while(tmp!=NULL)
-    {
-        nn=tmp;
-        tmp=tmp->next;
-        free(nn);
-    }
-// clearing malloc data of reminders
-    fc *n,*temp=nt;
-    while(temp!=NULL)
-    {
-        n=temp;
-        temp=temp->next;
-        remove(n->name);
-        free(n);
-    }
-    nt = NULL;   
+    newLine();
+    printf("Clock stopped, finished execution\n");  
+    finish:    
+    // clearing malloc data of reminders
+        tmp=first;
+        while(tmp!=NULL)
+        {
+            nn=tmp;
+            tmp=tmp->next;
+            free(nn);
+        }
+    // clearing malloc data of reminders
+        fc *n,*temp=undoStackTop;
+        while(temp!=NULL)
+        {
+            n=temp;
+            temp=temp->next;
+            remove(n->fileName);
+            free(n);
+        }
+    undoStackTop = NULL;   
     return 0;
 }
 
