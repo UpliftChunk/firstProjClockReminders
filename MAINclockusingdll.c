@@ -4,6 +4,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <windows.h>
+
 
 enum OperationType {UNDO, REDO};
 int num=1;
@@ -342,8 +344,8 @@ set:
         
         while(tmp!=NULL){
                 system("cls");
-                printf("waiting for: %s\n", S);
-                printf(" %d/%d/%d %d:%d   %s\n" ,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
+                printf("upcoming remainder: %s\n", S);
+                // printf(" %d/%d/%d %d:%d   %s\n" ,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 time(&currentTime);
@@ -359,6 +361,7 @@ set:
 
                 if ( d==D && m==M && y==Y && Th==TH && Tm==TM){
                     printf("TIME FOR \"%s\"\n",S);
+                    Beep(600, 200);
                     if(sec==59){
                         tmp=tmp->next;
                         if(tmp!=NULL) goto set;
