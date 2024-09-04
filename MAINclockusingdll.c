@@ -338,13 +338,12 @@ int main()
         tmp= findNode(note)->next;
         if(tmp==NULL) goto finish;
 
-set:
     int D=tmp->dn, M=tmp->mn, Y=tmp->yn, TH=tmp->Th, TM=tmp->Tm;
     strcpy(S,tmp->label);
         
         while(tmp!=NULL){
                 system("cls");
-                printf("upcoming remainder: %s\n", S);
+                // printf("upcoming remainder: %s\n", S);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,tmp->dn,tmp->mn,tmp->yn,tmp->Th,tmp->Tm,tmp->label);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
                 // printf(" %d/%d/%d %d:%d   %s\n" ,d,m,y,Th,Tm,S);
@@ -361,10 +360,13 @@ set:
 
                 if ( d==D && m==M && y==Y && Th==TH && Tm==TM){
                     printf("TIME FOR \"%s\"\n",S);
-                    Beep(600, 200);
+                    Beep(400, 200);
                     if(sec==59){
                         tmp=tmp->next;
-                        if(tmp!=NULL) goto set;
+                        if(tmp!=NULL){
+                            D=tmp->dn, M=tmp->mn, Y=tmp->yn, TH=tmp->Th, TM=tmp->Tm;
+                            strcpy(S,tmp->label);
+                        }
                     } 
                 }
                 sleep(1);    
